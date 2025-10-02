@@ -144,7 +144,7 @@ const Auth = () => {
     } else {
       toast({
         title: "Conta criada com sucesso!",
-        description: "Você já pode fazer login",
+        description: "Entre em contato com um administrador para obter permissões de acesso.",
       });
       setSignupData({ email: "", password: "", confirmPassword: "", username: "" });
     }

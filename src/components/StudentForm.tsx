@@ -111,7 +111,17 @@ const StudentForm = ({ open, onOpenChange, student, onSuccess }: StudentFormProp
           .update(formData)
           .eq("id", student.id);
 
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes('row-level security')) {
+            toast({
+              title: "Erro ao atualizar aluno",
+              description: "Você não tem permissão para atualizar alunos. Entre em contato com um administrador.",
+              variant: "destructive",
+            });
+            return;
+          }
+          throw error;
+        }
 
         toast({
           title: "Aluno atualizado com sucesso",
@@ -122,6 +132,14 @@ const StudentForm = ({ open, onOpenChange, student, onSuccess }: StudentFormProp
           .insert([{ ...formData, created_by: user.id }]);
 
         if (error) {
+          if (error.message.includes('row-level security')) {
+            toast({
+              title: "Erro ao cadastrar aluno",
+              description: "Você não tem permissão para adicionar alunos. Entre em contato com um administrador.",
+              variant: "destructive",
+            });
+            return;
+          }
           if (error.message.includes("duplicate key")) {
             toast({
               title: "Erro ao cadastrar aluno",

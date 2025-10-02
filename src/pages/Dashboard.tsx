@@ -11,7 +11,8 @@ import {
   Search, 
   Edit, 
   Trash2,
-  User
+  User,
+  UserCircle
 } from "lucide-react";
 import {
   Table,
@@ -32,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StudentForm from "@/components/StudentForm";
 
 interface Student {
@@ -54,11 +56,18 @@ const Dashboard = () => {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
   const [username, setUsername] = useState<string>("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   useEffect(() => {
     checkAuth();
-    loadStudents();
   }, []);
+
+  useEffect(() => {
+    if (!checkingAccess) {
+      loadStudents();
+    }
+  }, [checkingAccess, isAdmin]);
 
   useEffect(() => {
     const filtered = students.filter(
@@ -86,9 +95,24 @@ const Dashboard = () => {
     if (profile) {
       setUsername(profile.username);
     }
+
+    // Check if user has admin role
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id);
+    
+    const hasAdminRole = roles?.some(r => r.role === 'admin');
+    setIsAdmin(hasAdminRole || false);
+    setCheckingAccess(false);
   };
 
   const loadStudents = async () => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("alunos")
@@ -129,7 +153,18 @@ const Dashboard = () => {
         .delete()
         .eq("id", deletingStudent.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('row-level security')) {
+          toast({
+            title: "Erro ao excluir aluno",
+            description: "Você não tem permissão para excluir alunos. Entre em contato com um administrador.",
+            variant: "destructive",
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       toast({
         title: "Aluno excluído com sucesso",
@@ -165,6 +200,48 @@ const Dashboard = () => {
         return "bg-muted text-muted-foreground";
     }
   };
+
+  if (checkingAccess || loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <UserCircle className="h-6 w-6" />
+                  Acesso Restrito
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground">
+                  Você não tem permissão de administrador para acessar o sistema de gerenciamento de alunos.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Entre em contato com um administrador para solicitar acesso.
+                </p>
+                <Button onClick={handleLogout} variant="outline" className="w-full">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sair
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
